@@ -11,7 +11,7 @@ use collector::{
 };
 use common::{test_kafka_config, KafkaTestContainer};
 use rdkafka::consumer::{Consumer, StreamConsumer};
-use rdkafka::message::Message;
+use rdkafka::message::{Headers, Message};
 use rdkafka::ClientConfig;
 use std::time::Duration;
 use testcontainers::clients::Cli;
