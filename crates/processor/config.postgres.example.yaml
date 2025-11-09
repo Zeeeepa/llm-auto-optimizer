@@ -1,0 +1,120 @@
+# PostgreSQL State Backend Configuration Example
+#
+# This file shows various configuration options for the PostgreSQL state backend
+# Copy and customize for your deployment
+
+# Basic Configuration
+basic:
+  database_url: "postgresql://postgres:postgres@localhost/optimizer"
+  min_connections: 2
+  max_connections: 10
+  table_name: "state_entries"
+  schema_name: "public"
+
+# Development Configuration
+development:
+  database_url: "postgresql://dev_user:dev_pass@localhost:5432/optimizer_dev"
+  min_connections: 2
+  max_connections: 10
+  connect_timeout_secs: 10
+  query_timeout_secs: 30
+  ssl_mode: "prefer"
+  max_retries: 3
+  retry_backoff_ms: 100
+  log_statements: true  # Enable for debugging
+
+# Production Configuration
+production:
+  # Use environment variable for security
+  database_url: "${DATABASE_URL}"
+  min_connections: 10
+  max_connections: 100
+  connect_timeout_secs: 30
+  query_timeout_secs: 60
+  ssl_mode: "require"  # or "verify-full" for maximum security
+  max_retries: 5
+  retry_backoff_ms: 100
+  log_statements: false  # Disable in production
+
+# High-Performance Configuration
+high_performance:
+  database_url: "${DATABASE_URL}"
+  min_connections: 20
+  max_connections: 200
+  connect_timeout_secs: 30
+  query_timeout_secs: 120
+  ssl_mode: "require"
+  max_retries: 3
+  retry_backoff_ms: 50
+
+# High-Availability Configuration
+high_availability:
+  database_url: "${DATABASE_URL}"
+  min_connections: 10
+  max_connections: 50
+  connect_timeout_secs: 30
+  query_timeout_secs: 60
+  ssl_mode: "verify-full"
+  ssl_cert: "/path/to/client-cert.pem"
+  ssl_key: "/path/to/client-key.pem"
+  ssl_ca: "/path/to/ca-cert.pem"
+  max_retries: 10
+  retry_backoff_ms: 200
+
+# Testing Configuration
+testing:
+  database_url: "postgresql://postgres:postgres@localhost/optimizer_test"
+  min_connections: 1
+  max_connections: 5
+  connect_timeout_secs: 5
+  query_timeout_secs: 10
+  ssl_mode: "disable"
+  max_retries: 1
+  retry_backoff_ms: 10
+  log_statements: true
+
+# Custom Table Configuration
+custom_tables:
+  database_url: "${DATABASE_URL}"
+  table_name: "custom_state_entries"
+  schema_name: "processing"
+  min_connections: 5
+  max_connections: 20
+
+# Environment Variables (recommended for production)
+# Set these in your environment:
+#
+# export DATABASE_URL="postgresql://user:pass@host:port/dbname"
+# export DB_MIN_CONNECTIONS=10
+# export DB_MAX_CONNECTIONS=100
+# export DB_SSL_MODE="require"
+# export DB_CONNECT_TIMEOUT=30
+# export DB_QUERY_TIMEOUT=60
+# export DB_MAX_RETRIES=5
+# export DB_RETRY_BACKOFF_MS=100
+
+# SSL Modes:
+# - disable: No SSL
+# - allow: Try SSL, fallback to non-SSL
+# - prefer: Prefer SSL, fallback to non-SSL (default)
+# - require: Require SSL, no CA verification
+# - verify-ca: Require SSL and verify CA
+# - verify-full: Require SSL and verify hostname
+
+# Connection Pool Sizing Guidelines:
+# - Low traffic: min=2, max=10
+# - Medium traffic: min=5, max=20
+# - High traffic: min=10, max=50
+# - Very high traffic: min=20, max=100+
+#
+# Rule of thumb: max_connections = 2-3x concurrent request rate
+
+# Timeout Guidelines:
+# - Connect timeout: 10-30 seconds
+# - Query timeout: 30-60 seconds (longer for complex queries)
+# - Adjust based on network latency and query complexity
+
+# Retry Guidelines:
+# - Max retries: 3-5 for production
+# - Retry backoff: 50-200ms
+# - Exponential backoff for transient errors

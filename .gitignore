@@ -1,0 +1,51 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+
+# Databases
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+dist/
+build/
+
+# Test coverage
+coverage/
+*.profraw
+*.profdata
+
+# Documentation
+/docs/site
+
+# Temporary files
+tmp/
+temp/
+
+# Node.js
+node_modules/
+package-lock.json

@@ -1,0 +1,56 @@
+[package]
+name = "processor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+llm-optimizer-types = { workspace = true }
+
+# Async Runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Kafka
+rdkafka = { workspace = true }
+
+# State Storage
+sled = { workspace = true }
+redis = { workspace = true }
+sqlx = { workspace = true }
+moka = { workspace = true }
+
+# Statistics & Aggregation
+statrs = { workspace = true }
+ndarray = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+dashmap = { workspace = true }
+num_cpus = "1.16"
+hex = "0.4"
+
+# Observability
+tracing = { workspace = true }
+opentelemetry = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+criterion = { workspace = true }
+tempfile = { workspace = true }
+tracing-subscriber = { workspace = true }

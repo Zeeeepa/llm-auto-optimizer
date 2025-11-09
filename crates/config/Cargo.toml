@@ -1,0 +1,17 @@
+[package]
+name = "llm-optimizer-config"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+llm-optimizer-types = { workspace = true }
+
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+figment = { workspace = true }
+thiserror = { workspace = true }
+notify = { workspace = true }
+tokio = { workspace = true }

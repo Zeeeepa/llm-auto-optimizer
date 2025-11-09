@@ -1,0 +1,34 @@
+[package]
+name = "decision"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+llm-optimizer-types = { workspace = true }
+llm-optimizer-config = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Statistics and ML
+statrs = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Utilities
+dashmap = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+approx = "0.5"

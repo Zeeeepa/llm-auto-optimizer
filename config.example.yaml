@@ -1,0 +1,118 @@
+# LLM-Auto-Optimizer Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+service:
+  # Service identification
+  name: "llm-auto-optimizer"
+
+  # Network configuration
+  host: "0.0.0.0"
+  port: 8080
+
+  # Deployment mode: sidecar, standalone, or daemon
+  mode: "standalone"
+
+  # Optimization loop interval in seconds (900 = 15 minutes)
+  optimization_interval_secs: 900
+
+database:
+  # Database connection string
+  # SQLite (development): "sqlite://optimizer.db"
+  # PostgreSQL (production): "postgres://user:password@localhost/optimizer"
+  connection_string: "sqlite://optimizer.db"
+
+  # Connection pool settings
+  max_connections: 10
+  timeout_secs: 30
+
+  # Automatically run migrations on startup
+  auto_migrate: true
+
+integrations:
+  # LLM Observatory - Metrics collection endpoint (OpenTelemetry OTLP)
+  # Format: "http://hostname:4317"
+  observatory_url: null
+
+  # LLM Orchestrator - Request routing and configuration API
+  # Format: "http://hostname:8080"
+  orchestrator_url: null
+
+  # LLM Sentinel - Anomaly detection via Kafka
+  # Format: ["kafka-broker:9092"]
+  sentinel_kafka_brokers: null
+
+  # LLM Governance - Policy enforcement API
+  # Format: "http://hostname:8080"
+  governance_url: null
+
+  # LLM Registry - Model catalog and experiment tracking
+  # Format: "http://hostname:8080"
+  registry_url: null
+
+strategies:
+  # Threshold-based heuristics
+  thresholds:
+    # Performance thresholds
+    latency_p95_ms: 5000.0          # Maximum acceptable p95 latency
+    latency_increase_pct: 20.0      # Trigger if latency increases by this %
+    error_rate_pct: 5.0             # Maximum acceptable error rate
+
+    # Cost thresholds
+    cost_per_request: 0.10          # Maximum cost per request
+    daily_budget: 1000.0            # Daily spending limit
+
+    # Quality thresholds
+    quality_score_min: 0.7          # Minimum quality score (0.0-1.0)
+    quality_drop_pct: 10.0          # Trigger if quality drops by this %
+
+    # Drift detection thresholds
+    psi_threshold: 0.1              # Population Stability Index threshold
+    ks_test_p_value: 0.05           # Kolmogorov-Smirnov test p-value
+
+  # A/B testing configuration
+  ab_testing:
+    min_sample_size: 1000           # Minimum requests per variant
+    significance_level: 0.05        # Statistical significance (p < 0.05)
+    max_duration_seconds: 604800    # 7 days
+    allocation_strategy: "thompson_sampling"  # or "fixed", "epsilon_greedy"
+
+  # Reinforcement learning configuration
+  rl:
+    learning_rate: 0.1
+    exploration_rate: 0.1
+    discount_factor: 0.95
+    reward_weights:
+      quality: 0.6
+      cost: 0.3
+      latency: 0.1
+      feedback: 0.0
+
+  # Cost-performance optimization
+  cost_performance:
+    # Mode: cost_optimized, balanced, quality_optimized, or custom
+    mode: "balanced"
+
+    # Custom weights (only used if mode is "custom")
+    quality_weight: 0.5
+    cost_weight: 0.3
+    latency_weight: 0.2
+
+observability:
+  # Logging configuration
+  log_level: "info"               # trace, debug, info, warn, error
+  json_logging: false             # Enable structured JSON logs
+
+  # Metrics export (Prometheus format)
+  metrics_endpoint: null          # "http://prometheus:9090/api/v1/write"
+
+  # Traces export (OpenTelemetry)
+  traces_endpoint: null           # "http://jaeger:14268/api/traces"
+
+# Environment variable overrides:
+# All configuration can be overridden with environment variables using the format:
+# OPTIMIZER_<SECTION>__<KEY>
+#
+# Examples:
+#   export OPTIMIZER_SERVICE__PORT=9090
+#   export OPTIMIZER_DATABASE__CONNECTION_STRING="postgres://..."
+#   export OPTIMIZER_OBSERVABILITY__LOG_LEVEL="debug"

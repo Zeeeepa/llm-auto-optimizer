@@ -1,0 +1,61 @@
+# Dead Letter Queue Configuration Example
+
+# Kafka configuration for main events
+kafka:
+  brokers: "localhost:9092"
+  topic: "feedback-events"
+  client_id: "llm-optimizer-collector"
+  message_timeout_ms: 30000
+  compression_type: "gzip"
+  retries: 3
+  retry_backoff_ms: 1000
+
+# Dead Letter Queue configuration
+dead_letter_queue:
+  # Enable DLQ
+  enabled: true
+
+  # DLQ type: kafka | file | hybrid
+  # - kafka: Publish failed events to a separate Kafka DLQ topic
+  # - file: Persist failed events to rotating log files
+  # - hybrid: Try Kafka first, fallback to file on failure
+  type: hybrid
+
+  # Kafka DLQ topic name (for kafka and hybrid types)
+  kafka_topic: feedback-events-dlq
+
+  # File path for DLQ storage (for file and hybrid types)
+  file_path: /var/lib/collector/dlq
+
+  # Maximum file size in MB before rotation
+  max_file_size_mb: 100
+
+  # Maximum number of rotated files to keep
+  max_files: 10
+
+  # Retry interval in seconds (how often to attempt recovery)
+  retry_interval_seconds: 300  # 5 minutes
+
+  # Maximum retry attempts before discarding
+  max_retry_attempts: 3
+
+  # Retention period in days (for file cleanup)
+  retention_days: 7
+
+  # Enable background recovery task
+  enable_recovery: true
+
+# Collector configuration
+collector:
+  buffer_size: 10000
+  max_batch_size: 100
+  max_batch_age_secs: 10
+  flush_interval_ms: 5000
+  num_workers: 4
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  endpoint: "http://localhost:4317"
+  service_name: "feedback-collector"
+  export_interval_seconds: 60

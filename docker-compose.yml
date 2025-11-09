@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  optimizer:
+    build: .
+    container_name: llm-auto-optimizer
+    ports:
+      - "8080:8080"
+    environment:
+      - OPTIMIZER_DATABASE__CONNECTION_STRING=postgres://optimizer:password@postgres:5432/optimizer
+      - OPTIMIZER_OBSERVABILITY__LOG_LEVEL=info
+      - OPTIMIZER_SERVICE__MODE=standalone
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - optimizer-data:/app/data
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: llm-optimizer-postgres
+    environment:
+      - POSTGRES_USER=optimizer
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=optimizer
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - llm-devops
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optimizer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: llm-optimizer-redis
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - llm-devops
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Redis Commander - Web UI for Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: llm-optimizer-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  # pgAdmin - Web UI for PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: llm-optimizer-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@llmdevops.dev
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: llm-optimizer-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: llm-optimizer-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  # Redis Exporter - Export Redis metrics to Prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: llm-optimizer-redis-exporter
+    command:
+      - '--redis.addr=redis:6379'
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+  # PostgreSQL Exporter - Export PostgreSQL metrics to Prometheus
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: llm-optimizer-postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://optimizer:password@postgres:5432/optimizer?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - llm-devops
+
+volumes:
+  postgres-data:
+  redis-data:
+  optimizer-data:
+  pgadmin-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  llm-devops:
+    name: llm-devops
+    driver: bridge

@@ -1,0 +1,15 @@
+# Grafana dashboard provisioning configuration
+
+apiVersion: 1
+
+providers:
+  - name: 'Default'
+    orgId: 1
+    folder: 'LLM Optimizer'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

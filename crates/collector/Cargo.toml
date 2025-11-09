@@ -1,0 +1,48 @@
+[package]
+name = "collector"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+llm-optimizer-types = { workspace = true }
+
+# Async Runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Observability
+tracing = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+
+# Kafka
+rdkafka = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+dashmap = { workspace = true }
+governor = { workspace = true }
+moka = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+testcontainers = "0.15"
+testcontainers-modules = { version = "0.3", features = ["kafka"] }
+rdkafka = { workspace = true, features = ["tokio"] }
+mockall = { workspace = true }
+tempfile = { workspace = true }
