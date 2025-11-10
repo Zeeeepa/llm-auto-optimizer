@@ -359,6 +359,214 @@ impl StreamPipelineBuilder {
         self
     }
 
+    /// Enable event deduplication
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use std::time::Duration;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_deduplication(true, Duration::from_secs(3600));
+    /// ```
+    pub fn with_deduplication(mut self, enabled: bool, ttl: Duration) -> Self {
+        self.config.processor.deduplication.enabled = enabled;
+        self.config.processor.deduplication.ttl = ttl;
+        self
+    }
+
+    /// Set the deduplication configuration
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use processor::config::{DeduplicationConfig, DeduplicationStrategy};
+    /// # use std::time::Duration;
+    /// let dedup_config = DeduplicationConfig::new()
+    ///     .enabled()
+    ///     .with_ttl(Duration::from_secs(7200))
+    ///     .with_strategy(DeduplicationStrategy::EventId);
+    ///
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_deduplication_config(dedup_config);
+    /// ```
+    pub fn with_deduplication_config(mut self, config: crate::config::DeduplicationConfig) -> Self {
+        self.config.processor.deduplication = config;
+        self
+    }
+
+    /// Set the deduplication TTL
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use std::time::Duration;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_deduplication_ttl(Duration::from_secs(3600));
+    /// ```
+    pub fn with_deduplication_ttl(mut self, ttl: Duration) -> Self {
+        self.config.processor.deduplication.ttl = ttl;
+        self
+    }
+
+    /// Set the deduplication strategy
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use processor::config::DeduplicationStrategy;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_deduplication_strategy(DeduplicationStrategy::ContentHash);
+    /// ```
+    pub fn with_deduplication_strategy(mut self, strategy: crate::config::DeduplicationStrategy) -> Self {
+        self.config.processor.deduplication.strategy = strategy;
+        self
+    }
+
+    /// Set the Redis key prefix for deduplication
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_deduplication_redis_prefix("myapp:dedup");
+    /// ```
+    pub fn with_deduplication_redis_prefix<S: Into<String>>(mut self, prefix: S) -> Self {
+        self.config.processor.deduplication.redis_key_prefix = prefix.into();
+        self
+    }
+
+    /// Enable time-series normalization
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use std::time::Duration;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_normalization(true, Duration::from_secs(5));
+    /// ```
+    pub fn with_normalization(mut self, enabled: bool, interval: Duration) -> Self {
+        self.config.processor.normalization.enabled = enabled;
+        self.config.processor.normalization.interval = interval;
+        self
+    }
+
+    /// Set the normalization configuration
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use processor::config::{NormalizationConfig, FillStrategy, AlignmentStrategy};
+    /// # use std::time::Duration;
+    /// let norm_config = NormalizationConfig::new()
+    ///     .enabled()
+    ///     .with_interval(Duration::from_secs(5))
+    ///     .with_fill_strategy(FillStrategy::LinearInterpolation)
+    ///     .with_alignment(AlignmentStrategy::Start);
+    ///
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_normalization_config(norm_config);
+    /// ```
+    pub fn with_normalization_config(mut self, config: crate::config::NormalizationConfig) -> Self {
+        self.config.processor.normalization = config;
+        self
+    }
+
+    /// Set the normalization interval
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use std::time::Duration;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_normalization_interval(Duration::from_secs(5));
+    /// ```
+    pub fn with_normalization_interval(mut self, interval: Duration) -> Self {
+        self.config.processor.normalization.interval = interval;
+        self
+    }
+
+    /// Set the fill strategy for normalization
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use processor::config::FillStrategy;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_fill_strategy(FillStrategy::LinearInterpolation);
+    /// ```
+    pub fn with_fill_strategy(mut self, strategy: crate::config::FillStrategy) -> Self {
+        self.config.processor.normalization.fill_strategy = strategy;
+        self
+    }
+
+    /// Set the alignment strategy for normalization
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use processor::config::AlignmentStrategy;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_alignment_strategy(AlignmentStrategy::Start);
+    /// ```
+    pub fn with_alignment_strategy(mut self, strategy: crate::config::AlignmentStrategy) -> Self {
+        self.config.processor.normalization.alignment = strategy;
+        self
+    }
+
+    /// Set the normalization buffer size
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_normalization_buffer_size(2000);
+    /// ```
+    pub fn with_normalization_buffer_size(mut self, size: usize) -> Self {
+        self.config.processor.normalization.buffer_size = size;
+        self
+    }
+
+    /// Set the interpolation max gap for normalization
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// # use std::time::Duration;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_interpolation_max_gap(Duration::from_secs(10));
+    /// ```
+    pub fn with_interpolation_max_gap(mut self, gap: Duration) -> Self {
+        self.config.processor.normalization.interpolation_max_gap = gap;
+        self
+    }
+
+    /// Enable outlier detection in normalization
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use processor::pipeline::StreamPipelineBuilder;
+    /// let builder = StreamPipelineBuilder::new()
+    ///     .with_normalization_outlier_detection(3.0);
+    /// ```
+    pub fn with_normalization_outlier_detection(mut self, threshold: f64) -> Self {
+        self.config.processor.normalization.drop_outliers = true;
+        self.config.processor.normalization.outlier_threshold = threshold;
+        self
+    }
+
     /// Build the pipeline with the configured settings
     ///
     /// # Errors
@@ -727,5 +935,259 @@ mod tests {
             .unwrap();
 
         let _executor: StreamExecutor<i32> = pipeline.create_executor();
+    }
+
+    #[test]
+    fn test_builder_with_deduplication() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_deduplication(true, Duration::from_secs(3600))
+            .build()
+            .unwrap();
+
+        assert!(pipeline.config().processor.deduplication.enabled);
+        assert_eq!(
+            pipeline.config().processor.deduplication.ttl,
+            Duration::from_secs(3600)
+        );
+    }
+
+    #[test]
+    fn test_builder_with_deduplication_config() {
+        use crate::config::{DeduplicationConfig, DeduplicationStrategy};
+
+        let dedup_config = DeduplicationConfig::new()
+            .enabled()
+            .with_ttl(Duration::from_secs(7200))
+            .with_strategy(DeduplicationStrategy::EventId)
+            .with_redis_key_prefix("custom_dedup");
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_deduplication_config(dedup_config)
+            .build()
+            .unwrap();
+
+        let config = &pipeline.config().processor.deduplication;
+        assert!(config.enabled);
+        assert_eq!(config.ttl, Duration::from_secs(7200));
+        assert_eq!(config.strategy, DeduplicationStrategy::EventId);
+        assert_eq!(config.redis_key_prefix, "custom_dedup");
+    }
+
+    #[test]
+    fn test_builder_with_deduplication_ttl() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_deduplication_ttl(Duration::from_secs(1800))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.deduplication.ttl,
+            Duration::from_secs(1800)
+        );
+    }
+
+    #[test]
+    fn test_builder_with_deduplication_strategy() {
+        use crate::config::DeduplicationStrategy;
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_deduplication_strategy(DeduplicationStrategy::CompositeKey)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.deduplication.strategy,
+            DeduplicationStrategy::CompositeKey
+        );
+    }
+
+    #[test]
+    fn test_builder_with_deduplication_redis_prefix() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_deduplication_redis_prefix("myapp:dedup")
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.deduplication.redis_key_prefix,
+            "myapp:dedup"
+        );
+    }
+
+    #[test]
+    fn test_builder_deduplication_fluent_api() {
+        use crate::config::DeduplicationStrategy;
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("dedup-pipeline")
+            .with_deduplication(true, Duration::from_secs(3600))
+            .with_deduplication_strategy(DeduplicationStrategy::ContentHash)
+            .with_deduplication_redis_prefix("prod:dedup")
+            .build()
+            .unwrap();
+
+        let config = &pipeline.config().processor.deduplication;
+        assert!(config.enabled);
+        assert_eq!(config.ttl, Duration::from_secs(3600));
+        assert_eq!(config.strategy, DeduplicationStrategy::ContentHash);
+        assert_eq!(config.redis_key_prefix, "prod:dedup");
+    }
+
+    #[test]
+    fn test_builder_with_normalization() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_normalization(true, Duration::from_secs(5))
+            .build()
+            .unwrap();
+
+        assert!(pipeline.config().processor.normalization.enabled);
+        assert_eq!(
+            pipeline.config().processor.normalization.interval,
+            Duration::from_secs(5)
+        );
+    }
+
+    #[test]
+    fn test_builder_with_normalization_config() {
+        use crate::config::{NormalizationConfig, FillStrategy, AlignmentStrategy};
+
+        let norm_config = NormalizationConfig::new()
+            .enabled()
+            .with_interval(Duration::from_secs(10))
+            .with_fill_strategy(FillStrategy::LinearInterpolation)
+            .with_alignment(AlignmentStrategy::End);
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_normalization_config(norm_config)
+            .build()
+            .unwrap();
+
+        let config = &pipeline.config().processor.normalization;
+        assert!(config.enabled);
+        assert_eq!(config.interval, Duration::from_secs(10));
+        assert_eq!(config.fill_strategy, FillStrategy::LinearInterpolation);
+        assert_eq!(config.alignment, AlignmentStrategy::End);
+    }
+
+    #[test]
+    fn test_builder_with_normalization_interval() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_normalization_interval(Duration::from_secs(15))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.normalization.interval,
+            Duration::from_secs(15)
+        );
+    }
+
+    #[test]
+    fn test_builder_with_fill_strategy() {
+        use crate::config::FillStrategy;
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_fill_strategy(FillStrategy::BackwardFill)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.normalization.fill_strategy,
+            FillStrategy::BackwardFill
+        );
+    }
+
+    #[test]
+    fn test_builder_with_alignment_strategy() {
+        use crate::config::AlignmentStrategy;
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_alignment_strategy(AlignmentStrategy::Center)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.normalization.alignment,
+            AlignmentStrategy::Center
+        );
+    }
+
+    #[test]
+    fn test_builder_with_normalization_buffer_size() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_normalization_buffer_size(5000)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.normalization.buffer_size,
+            5000
+        );
+    }
+
+    #[test]
+    fn test_builder_with_interpolation_max_gap() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_interpolation_max_gap(Duration::from_secs(20))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            pipeline.config().processor.normalization.interpolation_max_gap,
+            Duration::from_secs(20)
+        );
+    }
+
+    #[test]
+    fn test_builder_with_normalization_outlier_detection() {
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("test")
+            .with_normalization_outlier_detection(2.5)
+            .build()
+            .unwrap();
+
+        assert!(pipeline.config().processor.normalization.drop_outliers);
+        assert_eq!(
+            pipeline.config().processor.normalization.outlier_threshold,
+            2.5
+        );
+    }
+
+    #[test]
+    fn test_builder_normalization_fluent_api() {
+        use crate::config::{FillStrategy, AlignmentStrategy};
+
+        let pipeline = StreamPipelineBuilder::new()
+            .with_name("norm-pipeline")
+            .with_normalization(true, Duration::from_secs(5))
+            .with_fill_strategy(FillStrategy::LinearInterpolation)
+            .with_alignment_strategy(AlignmentStrategy::Start)
+            .with_normalization_buffer_size(2000)
+            .with_interpolation_max_gap(Duration::from_secs(15))
+            .with_normalization_outlier_detection(3.0)
+            .build()
+            .unwrap();
+
+        let config = &pipeline.config().processor.normalization;
+        assert!(config.enabled);
+        assert_eq!(config.interval, Duration::from_secs(5));
+        assert_eq!(config.fill_strategy, FillStrategy::LinearInterpolation);
+        assert_eq!(config.alignment, AlignmentStrategy::Start);
+        assert_eq!(config.buffer_size, 2000);
+        assert_eq!(config.interpolation_max_gap, Duration::from_secs(15));
+        assert!(config.drop_outliers);
+        assert_eq!(config.outlier_threshold, 3.0);
     }
 }

@@ -87,6 +87,7 @@ mod minmax;
 mod percentile;
 mod stddev;
 mod composite;
+pub mod statistics;
 
 // Re-export the trait
 pub use trait_::{Aggregator, ToF64};

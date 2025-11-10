@@ -105,11 +105,16 @@
 pub mod backend;
 pub mod cached_backend;
 pub mod checkpoint;
+pub mod compression;
 pub mod distributed_lock;
 pub mod memory;
 pub mod postgres_backend;
+pub mod postgres_backend_enhanced;
+#[cfg(test)]
+mod postgres_backend_enhanced_tests;
 pub mod postgres_lock;
 pub mod redis_backend;
+pub mod redis_backend_enterprise;
 pub mod redis_lock;
 pub mod sled_backend;
 
@@ -121,13 +126,28 @@ pub use cached_backend::{
 pub use checkpoint::{
     Checkpoint, CheckpointCoordinator, CheckpointMetadata, CheckpointOptions, CheckpointStats,
 };
+pub use compression::{
+    compress, decompress, CompressionConfig, CompressionStats,
+    CompressionAlgorithm as SledCompressionAlgorithm,
+};
 pub use distributed_lock::{DistributedLock, LockGuard, LockToken};
 pub use memory::MemoryStateBackend;
 pub use postgres_backend::{CheckpointInfo, PostgresConfig, PostgresStateBackend, PostgresStats};
+pub use postgres_backend_enhanced::{
+    EnhancedPostgresBackend, EnhancedPostgresConfig, EnhancedPostgresStats,
+    IsolationLevel, PartitionStrategy, PoolStatistics, PostgresLockGuard,
+    PostgresListener, PostgresPoolConfig, PostgresReplicaConfig, PostgresSslConfig,
+    PostgresStatsSnapshot, PostgresTransaction, ReplicationStatus, RetentionPolicy,
+    TableStatistics,
+};
 pub use postgres_lock::PostgresDistributedLock;
 pub use redis_backend::{RedisConfig, RedisConfigBuilder, RedisStateBackend, RedisStats};
+pub use redis_backend_enterprise::{
+    BackendStats, CompressionAlgorithm, EnterpriseRedisBackend, EnterpriseRedisConfig,
+    EnterpriseRedisConfigBuilder, RedisMetrics, RedisMode, RedlockGuard, SerializationFormat,
+};
 pub use redis_lock::{RedisDistributedLock, RetryConfig};
-pub use sled_backend::SledStateBackend;
+pub use sled_backend::{SledBackendStats, SledConfig, SledStateBackend};
 
 /// Type alias for state operation results
 pub type StateResult<T> = Result<T, crate::error::StateError>;

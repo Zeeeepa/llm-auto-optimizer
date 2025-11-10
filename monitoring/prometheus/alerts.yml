@@ -1,0 +1,525 @@
+groups:
+  # ============================================================================
+  # CRITICAL ALERTS - Require immediate attention
+  # ============================================================================
+  - name: critical_alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          100 * (
+            rate(http_requests_errors_total{job="llm-optimizer"}[5m])
+            /
+            rate(http_requests_total{job="llm-optimizer"}[5m])
+          ) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate detected ({{ $value | humanizePercentage }})"
+          description: |
+            Error rate is {{ $value | humanizePercentage }} for {{ $labels.instance }}.
+            This exceeds the 5% threshold for more than 5 minutes.
+
+            Runbook: https://docs.llmdevops.dev/runbooks/high-error-rate
+            Dashboard: https://grafana.llmdevops.dev/d/llm-optimizer-overview
+
+      - alert: ServiceDown
+        expr: up{job="llm-optimizer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: |
+            The LLM Optimizer service on {{ $labels.instance }} has been unreachable for over 1 minute.
+            No metrics are being received from this instance.
+
+            Immediate Actions:
+            1. Check service status: systemctl status llm-optimizer
+            2. Check recent logs: journalctl -u llm-optimizer --since "5 minutes ago"
+            3. Verify network connectivity
+
+            Runbook: https://docs.llmdevops.dev/runbooks/service-down
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_request_duration_ms_bucket{job="llm-optimizer"}[5m])
+          ) > 1000
+        for: 5m
+        labels:
+          severity: critical
+          component: performance
+        annotations:
+          summary: "High P99 latency detected ({{ $value }}ms)"
+          description: |
+            P99 latency is {{ $value }}ms for {{ $labels.instance }}, exceeding 1000ms threshold.
+            This affects 1% of requests and may indicate system degradation.
+
+            Investigation Steps:
+            1. Check CPU/Memory utilization
+            2. Review slow query logs
+            3. Check for backpressure in stream processing
+            4. Verify external service health (LLM APIs, databases)
+
+            Runbook: https://docs.llmdevops.dev/runbooks/high-latency
+
+      - alert: StateSizeGrowthCritical
+        expr: |
+          (
+            state_backend_size_bytes{job="llm-optimizer"}
+            -
+            state_backend_size_bytes{job="llm-optimizer"} offset 1h
+          ) > 10737418240
+        for: 5m
+        labels:
+          severity: critical
+          component: state
+        annotations:
+          summary: "State backend growing rapidly (>10GB in 1 hour)"
+          description: |
+            State backend size has grown by {{ $value | humanize1024 }} in the last hour.
+            Current size: {{ query "state_backend_size_bytes" | first | value | humanize1024 }}
+
+            This may indicate:
+            - Memory leak
+            - Unbounded state accumulation
+            - Missing state cleanup/TTL
+
+            Immediate Actions:
+            1. Review state retention policies
+            2. Check for runaway aggregations
+            3. Monitor memory usage trends
+            4. Consider triggering manual compaction
+
+            Runbook: https://docs.llmdevops.dev/runbooks/state-growth
+
+      - alert: LowCacheHitRate
+        expr: |
+          100 * (
+            rate(state_cache_hits_total{job="llm-optimizer"}[10m])
+            /
+            (
+              rate(state_cache_hits_total{job="llm-optimizer"}[10m])
+              +
+              rate(state_cache_misses_total{job="llm-optimizer"}[10m])
+            )
+          ) < 50
+        for: 10m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Cache hit rate critically low ({{ $value | humanizePercentage }})"
+          description: |
+            Cache hit rate is {{ $value | humanizePercentage }} for {{ $labels.cache_layer }}.
+            This is below the 50% threshold and will significantly impact performance.
+
+            Potential Causes:
+            - Cache size too small
+            - Poor key distribution
+            - Excessive cache invalidation
+            - High cardinality access patterns
+
+            Actions:
+            1. Review cache sizing configuration
+            2. Analyze access patterns
+            3. Check eviction rates
+            4. Consider cache warming strategies
+
+            Runbook: https://docs.llmdevops.dev/runbooks/low-cache-hit-rate
+
+      - alert: KafkaConsumerLag
+        expr: |
+          kafka_consumer_lag{job="llm-optimizer"} > 10000
+        for: 5m
+        labels:
+          severity: critical
+          component: messaging
+        annotations:
+          summary: "High Kafka consumer lag ({{ $value }} messages)"
+          description: |
+            Consumer lag is {{ $value }} messages for {{ $labels.topic }}/{{ $labels.partition }}.
+            This indicates the consumer cannot keep up with the producer.
+
+            Impact:
+            - Increased end-to-end latency
+            - Potential data loss if retention is exceeded
+            - Degraded real-time processing
+
+            Actions:
+            1. Scale up consumer instances
+            2. Review consumer performance
+            3. Check for processing bottlenecks
+            4. Verify Kafka cluster health
+
+            Runbook: https://docs.llmdevops.dev/runbooks/kafka-lag
+
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: |
+          100 * (
+            db_connection_pool_active{job="llm-optimizer"}
+            /
+            db_connection_pool_max{job="llm-optimizer"}
+          ) > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool near exhaustion ({{ $value | humanizePercentage }})"
+          description: |
+            Connection pool utilization is {{ $value | humanizePercentage }}.
+            Active: {{ query "db_connection_pool_active" | first | value }}
+            Max: {{ query "db_connection_pool_max" | first | value }}
+
+            This will cause request failures and degraded performance.
+
+            Immediate Actions:
+            1. Check for connection leaks
+            2. Review long-running queries
+            3. Consider increasing pool size
+            4. Monitor database performance
+
+            Runbook: https://docs.llmdevops.dev/runbooks/connection-pool
+
+  # ============================================================================
+  # WARNING ALERTS - Require attention but not immediately critical
+  # ============================================================================
+  - name: warning_alerts
+    interval: 1m
+    rules:
+      - alert: ModerateErrorRate
+        expr: |
+          100 * (
+            rate(http_requests_errors_total{job="llm-optimizer"}[10m])
+            /
+            rate(http_requests_total{job="llm-optimizer"}[10m])
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Moderate error rate detected ({{ $value | humanizePercentage }})"
+          description: |
+            Error rate is {{ $value | humanizePercentage }} for {{ $labels.instance }}.
+            This exceeds the 1% threshold but is below critical (5%).
+
+            Monitor for escalation. Review error logs for patterns.
+
+      - alert: HighBackpressure
+        expr: |
+          stream_backpressure_queue_size{job="llm-optimizer"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: streaming
+        annotations:
+          summary: "High backpressure detected ({{ $value }} events queued)"
+          description: |
+            Backpressure queue has {{ $value }} events for {{ $labels.pipeline }}.
+            This indicates processing cannot keep up with incoming rate.
+
+            Actions:
+            1. Monitor for queue growth
+            2. Review processing performance
+            3. Consider scaling operators
+            4. Check for downstream bottlenecks
+
+      - alert: HighWatermarkLag
+        expr: |
+          watermark_lag_ms{job="llm-optimizer"} > 60000
+        for: 5m
+        labels:
+          severity: warning
+          component: streaming
+        annotations:
+          summary: "High watermark lag ({{ $value }}ms)"
+          description: |
+            Watermark lag is {{ $value }}ms for {{ $labels.window }}.
+            This is over 60 seconds and may cause late data issues.
+
+            Impact:
+            - Delayed window triggers
+            - Increased late event count
+            - Reduced real-time accuracy
+
+      - alert: ManyLateEvents
+        expr: |
+          rate(late_events_total{job="llm-optimizer"}[5m]) * 60 > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: streaming
+        annotations:
+          summary: "High rate of late events ({{ $value }}/min)"
+          description: |
+            Receiving {{ $value }} late events per minute for {{ $labels.window }}.
+            This exceeds the 100/min threshold.
+
+            Possible Causes:
+            - Clock skew between producers
+            - Network delays
+            - Watermark configuration too aggressive
+            - Processing lag
+
+      - alert: ConnectionPoolHighUtilization
+        expr: |
+          100 * (
+            db_connection_pool_active{job="llm-optimizer"}
+            /
+            db_connection_pool_max{job="llm-optimizer"}
+          ) > 75
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High connection pool utilization ({{ $value | humanizePercentage }})"
+          description: |
+            Connection pool utilization is {{ $value | humanizePercentage }}.
+            Monitor for potential exhaustion.
+
+      - alert: HighMemoryUsage
+        expr: |
+          100 * (
+            process_memory_bytes{job="llm-optimizer"}
+            /
+            machine_memory_bytes{job="llm-optimizer"}
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage ({{ $value | humanizePercentage }})"
+          description: |
+            Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}.
+            Current: {{ query "process_memory_bytes" | first | value | humanize1024 }}
+            Total: {{ query "machine_memory_bytes" | first | value | humanize1024 }}
+
+            Actions:
+            1. Review memory trends
+            2. Check for memory leaks
+            3. Consider heap dump analysis
+            4. Monitor GC activity
+
+      - alert: HighCPUUsage
+        expr: |
+          100 * (
+            rate(process_cpu_seconds_total{job="llm-optimizer"}[5m])
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage ({{ $value | humanizePercentage }})"
+          description: |
+            CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}.
+
+            Actions:
+            1. Profile CPU usage
+            2. Check for inefficient algorithms
+            3. Review thread pool sizing
+            4. Consider horizontal scaling
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(db_query_duration_ms_bucket{job="llm-optimizer"}[5m])
+          ) > 500
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries (P95: {{ $value }}ms)"
+          description: |
+            95th percentile query latency is {{ $value }}ms.
+            This may impact overall system performance.
+
+            Investigation:
+            1. Review slow query logs
+            2. Check for missing indexes
+            3. Analyze query plans
+            4. Monitor database load
+
+      - alert: CacheEvictionRateHigh
+        expr: |
+          rate(state_cache_evictions_total{job="llm-optimizer"}[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "High cache eviction rate ({{ $value }}/sec)"
+          description: |
+            Cache eviction rate is {{ $value }} evictions/sec for {{ $labels.cache_layer }}.
+            This indicates cache sizing may be inadequate.
+
+            Impact:
+            - Reduced cache effectiveness
+            - Increased database load
+            - Higher latency
+
+  # ============================================================================
+  # INFORMATIONAL ALERTS - For monitoring and capacity planning
+  # ============================================================================
+  - name: informational_alerts
+    interval: 5m
+    rules:
+      - alert: HighThroughput
+        expr: |
+          rate(http_requests_total{job="llm-optimizer"}[5m]) > 1000
+        for: 10m
+        labels:
+          severity: info
+          component: capacity
+        annotations:
+          summary: "High throughput detected ({{ $value }}/sec)"
+          description: |
+            Request rate is {{ $value }}/sec for {{ $labels.instance }}.
+            This exceeds 1000 requests/sec.
+
+            This is informational for capacity planning.
+            Monitor system resources and consider scaling if sustained.
+
+      - alert: LowThroughput
+        expr: |
+          rate(http_requests_total{job="llm-optimizer"}[30m]) < 1
+        for: 30m
+        labels:
+          severity: info
+          component: traffic
+        annotations:
+          summary: "Low throughput detected ({{ $value }}/sec)"
+          description: |
+            Request rate is {{ $value }}/sec for {{ $labels.instance }}.
+            This is below 1 request/sec for 30 minutes.
+
+            Verify:
+            - Expected traffic patterns
+            - Client connectivity
+            - Load balancer configuration
+
+      - alert: UnusualLatencyPattern
+        expr: |
+          abs(
+            histogram_quantile(0.95,
+              rate(http_request_duration_ms_bucket{job="llm-optimizer"}[5m])
+            )
+            -
+            histogram_quantile(0.95,
+              rate(http_request_duration_ms_bucket{job="llm-optimizer"}[5m]) offset 1h
+            )
+          ) / histogram_quantile(0.95,
+            rate(http_request_duration_ms_bucket{job="llm-optimizer"}[5m]) offset 1h
+          ) * 100 > 50
+        for: 15m
+        labels:
+          severity: info
+          component: performance
+        annotations:
+          summary: "Unusual latency pattern detected ({{ $value | humanizePercentage }} change)"
+          description: |
+            P95 latency has changed by {{ $value | humanizePercentage }} compared to 1 hour ago.
+            Current: {{ query "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))" | first | value }}ms
+            1h ago: {{ query "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]) offset 1h)" | first | value }}ms
+
+            This may indicate:
+            - Recent deployment impact
+            - Traffic pattern changes
+            - External service degradation
+
+      - alert: StateSizeIncreasing
+        expr: |
+          deriv(state_backend_size_bytes{job="llm-optimizer"}[1h]) > 0
+        for: 2h
+        labels:
+          severity: info
+          component: state
+        annotations:
+          summary: "State size continuously increasing"
+          description: |
+            State backend size has been continuously increasing for 2 hours.
+            Current size: {{ query "state_backend_size_bytes" | first | value | humanize1024 }}
+
+            Review:
+            - State retention policies
+            - Cleanup job effectiveness
+            - Expected growth patterns
+
+      - alert: HighTokenUsage
+        expr: |
+          rate(llm_tokens_total{job="llm-optimizer"}[1h]) > 1000000
+        for: 1h
+        labels:
+          severity: info
+          component: cost
+        annotations:
+          summary: "High token usage detected ({{ $value }}/sec)"
+          description: |
+            Token usage rate is {{ $value }} tokens/sec.
+            Hourly rate: {{ query "rate(llm_tokens_total[1h]) * 3600" | first | value | humanize }}
+
+            Cost Monitoring:
+            - Review optimization effectiveness
+            - Check for inefficient prompts
+            - Verify caching is working
+            - Monitor budget utilization
+
+      - alert: ExperimentConverged
+        expr: |
+          ab_test_confidence{job="llm-optimizer"} > 95
+        for: 5m
+        labels:
+          severity: info
+          component: optimization
+        annotations:
+          summary: "A/B test {{ $labels.experiment_id }} has converged"
+          description: |
+            Experiment {{ $labels.experiment_id }} has reached 95% confidence.
+            Winner: {{ $labels.winning_variant }}
+            Improvement: {{ query "ab_test_improvement_percent" | first | value }}%
+
+            Action: Review results and consider promoting winner to production.
+
+      - alert: DiskSpaceWarning
+        expr: |
+          100 * (
+            disk_free_bytes{job="llm-optimizer"}
+            /
+            disk_total_bytes{job="llm-optimizer"}
+          ) < 20
+        for: 10m
+        labels:
+          severity: info
+          component: infrastructure
+        annotations:
+          summary: "Low disk space ({{ $value | humanizePercentage }} free)"
+          description: |
+            Disk space is {{ $value | humanizePercentage }} free on {{ $labels.instance }}.
+            Free: {{ query "disk_free_bytes" | first | value | humanize1024 }}
+            Total: {{ query "disk_total_bytes" | first | value | humanize1024 }}
+
+            Plan for cleanup or capacity expansion.
+
+      - alert: CertificateExpiringSoon
+        expr: |
+          (ssl_certificate_expiry_seconds{job="llm-optimizer"} - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: info
+          component: security
+        annotations:
+          summary: "SSL certificate expiring in {{ $value }} days"
+          description: |
+            SSL certificate for {{ $labels.domain }} expires in {{ $value }} days.
+            Expiry date: {{ query "ssl_certificate_expiry_seconds" | first | value | unixEpochToTime }}
+
+            Action: Renew certificate before expiration.

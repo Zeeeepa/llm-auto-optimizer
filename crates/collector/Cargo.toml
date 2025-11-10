@@ -47,3 +47,7 @@ rdkafka = { workspace = true, features = ["tokio"] }
 mockall = { workspace = true }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+rand = { workspace = true }
+prometheus-client = { workspace = true }

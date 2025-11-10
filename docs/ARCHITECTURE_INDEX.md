@@ -672,3 +672,21 @@ See [LICENSE](../LICENSE) for details.
 ---
 
 *Complete architecture specification for production-grade LLM optimization at scale.*
+
+## ML Training Infrastructure
+
+- **[ML Training Infrastructure Architecture](ML_TRAINING_INFRASTRUCTURE_ARCHITECTURE.md)** (75KB, 2,616 lines)
+  - Comprehensive production-grade design for model training, evaluation, and deployment
+  - Online learning, offline training, hyperparameter optimization
+  - Model registry with semantic versioning
+  - High-performance inference engine (<10ms p99)
+  - A/B testing framework with statistical rigor
+  - Model monitoring and drift detection
+  - Canary deployments with automatic rollback
+  - Complete Rust implementation guide
+
+- **[ML Training Infrastructure Summary](ML_TRAINING_INFRASTRUCTURE_SUMMARY.md)** (7.4KB)
+  - Quick reference guide
+  - Implementation checklist (8-10 weeks)
+  - Performance requirements and benchmarks
+  - Integration points with existing systems

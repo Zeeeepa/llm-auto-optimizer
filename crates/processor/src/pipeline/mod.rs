@@ -37,10 +37,13 @@
 pub mod builder;
 pub mod executor;
 pub mod operator;
+pub mod normalization_operator;
 
 pub use builder::{StreamPipelineBuilder, StreamPipeline, PipelineConfig};
 pub use executor::{StreamExecutor, ExecutorStats};
 pub use operator::{
     StreamOperator, MapOperator, FilterOperator, FlatMapOperator,
-    KeyByOperator, WindowOperator, AggregateOperator, OperatorContext,
+    KeyByOperator, WindowOperator, AggregateOperator, DeduplicationOperator,
+    OperatorContext, DeduplicationStats,
 };
+pub use normalization_operator::{NormalizationOperator, NormalizationStats, TimestampedEvent};

@@ -31,6 +31,19 @@ sled = { workspace = true }
 redis = { workspace = true }
 sqlx = { workspace = true }
 moka = { workspace = true }
+deadpool-redis = { workspace = true }
+r2d2 = { workspace = true }
+
+# Compression
+lz4 = { workspace = true }
+snap = { workspace = true }
+zstd = { workspace = true }
+
+# Serialization
+rmp-serde = { workspace = true }
+
+# Circuit Breaker & Resilience
+failsafe = { workspace = true }
 
 # Statistics & Aggregation
 statrs = { workspace = true }
@@ -44,10 +57,21 @@ anyhow = { workspace = true }
 dashmap = { workspace = true }
 num_cpus = "1.16"
 hex = "0.4"
+sha2 = { workspace = true }
+humantime-serde = { workspace = true }
 
 # Observability
 tracing = { workspace = true }
+tracing-opentelemetry = "0.25"
 opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-semantic-conventions = "0.16"
+prometheus-client = { workspace = true }
+
+# HTTP Server (for metrics)
+axum = { workspace = true }
+parking_lot = "0.12"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

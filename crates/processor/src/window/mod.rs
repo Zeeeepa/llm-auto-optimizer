@@ -108,6 +108,7 @@
 pub mod types;
 pub mod assigner;
 pub mod trigger;
+pub mod manager;
 
 pub use types::{Window, WindowBounds, WindowType};
 pub use assigner::{
@@ -128,6 +129,7 @@ pub use trigger::{
     ImmediateTrigger,
     NeverTrigger,
 };
+pub use manager::{WindowManager, WindowMetadata, WindowStats};
 
 use chrono::DateTime;
 use std::collections::HashMap;

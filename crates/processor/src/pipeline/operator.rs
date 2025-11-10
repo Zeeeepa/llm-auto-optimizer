@@ -564,6 +564,151 @@ where
     }
 }
 
+/// Deduplication operator - filters duplicate events
+///
+/// This operator filters out duplicate events based on a deduplication strategy.
+/// It maintains a set of seen event signatures and drops events that match
+/// previously processed signatures within the configured TTL window.
+///
+/// # Example
+///
+/// ```rust
+/// use processor::pipeline::operator::DeduplicationOperator;
+/// use processor::config::{DeduplicationConfig, DeduplicationStrategy};
+/// use std::time::Duration;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = DeduplicationConfig::new()
+///     .enabled()
+///     .with_ttl(Duration::from_secs(3600))
+///     .with_strategy(DeduplicationStrategy::ContentHash);
+///
+/// let operator = DeduplicationOperator::new("dedup", config);
+/// # Ok(())
+/// # }
+/// ```
+pub struct DeduplicationOperator {
+    name: String,
+    config: crate::config::DeduplicationConfig,
+    // In-memory cache for recently seen event hashes
+    // In production, this would be backed by Redis
+    seen_hashes: Arc<std::sync::RwLock<std::collections::HashMap<String, std::time::Instant>>>,
+}
+
+impl DeduplicationOperator {
+    /// Create a new deduplication operator
+    pub fn new<S: Into<String>>(name: S, config: crate::config::DeduplicationConfig) -> Self {
+        Self {
+            name: name.into(),
+            config,
+            seen_hashes: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        }
+    }
+
+    /// Compute the signature for an event based on the configured strategy
+    fn compute_signature(&self, data: &[u8], _strategy: crate::config::DeduplicationStrategy) -> String {
+        // For now, use simple content hashing
+        // In production, this would handle different strategies
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// Check if an event is a duplicate
+    fn is_duplicate(&self, signature: &str) -> bool {
+        let seen = self.seen_hashes.read().unwrap();
+        if let Some(timestamp) = seen.get(signature) {
+            // Check if the signature is still within TTL
+            timestamp.elapsed() < self.config.ttl
+        } else {
+            false
+        }
+    }
+
+    /// Mark an event signature as seen
+    fn mark_seen(&self, signature: String) {
+        let mut seen = self.seen_hashes.write().unwrap();
+        seen.insert(signature, std::time::Instant::now());
+
+        // Periodic cleanup of expired entries (simple implementation)
+        // In production, this would be done in a background task
+        if seen.len() > 10000 {
+            let ttl = self.config.ttl;
+            seen.retain(|_, timestamp| timestamp.elapsed() < ttl);
+        }
+    }
+
+    /// Get deduplication statistics
+    pub fn stats(&self) -> DeduplicationStats {
+        let seen = self.seen_hashes.read().unwrap();
+        DeduplicationStats {
+            cached_signatures: seen.len(),
+            enabled: self.config.enabled,
+        }
+    }
+}
+
+impl Debug for DeduplicationOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeduplicationOperator")
+            .field("name", &self.name)
+            .field("enabled", &self.config.enabled)
+            .field("strategy", &self.config.strategy)
+            .finish()
+    }
+}
+
+impl Clone for DeduplicationOperator {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            config: self.config.clone(),
+            seen_hashes: Arc::clone(&self.seen_hashes),
+        }
+    }
+}
+
+#[async_trait]
+impl StreamOperator for DeduplicationOperator {
+    async fn process(
+        &self,
+        input: Vec<u8>,
+        _ctx: &OperatorContext,
+    ) -> Result<Vec<Vec<u8>>> {
+        // If deduplication is disabled, pass through
+        if !self.config.enabled {
+            return Ok(vec![input]);
+        }
+
+        // Compute event signature
+        let signature = self.compute_signature(&input, self.config.strategy);
+
+        // Check for duplicates
+        if self.is_duplicate(&signature) {
+            // Drop duplicate event
+            Ok(vec![])
+        } else {
+            // Mark as seen and pass through
+            self.mark_seen(signature);
+            Ok(vec![input])
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+/// Statistics for deduplication operator
+#[derive(Debug, Clone)]
+pub struct DeduplicationStats {
+    /// Number of cached event signatures
+    pub cached_signatures: usize,
+    /// Whether deduplication is enabled
+    pub enabled: bool,
+}
+
 /// Chain of operators that can be applied sequentially
 pub struct OperatorChain {
     operators: Vec<Arc<dyn StreamOperator>>,
@@ -841,5 +986,107 @@ mod tests {
         let chain = OperatorChain::default();
         assert!(chain.is_empty());
         assert_eq!(chain.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_deduplication_operator_disabled() {
+        use crate::config::DeduplicationConfig;
+
+        let config = DeduplicationConfig::default(); // disabled by default
+        let operator = DeduplicationOperator::new("dedup", config);
+        let ctx = OperatorContext::new(Watermark::min(), 0);
+
+        let input = bincode::serialize(&42).unwrap();
+        let output1 = operator.process(input.clone(), &ctx).await.unwrap();
+        let output2 = operator.process(input.clone(), &ctx).await.unwrap();
+
+        // Both should pass through when disabled
+        assert_eq!(output1.len(), 1);
+        assert_eq!(output2.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_deduplication_operator_enabled() {
+        use crate::config::DeduplicationConfig;
+
+        let config = DeduplicationConfig::new().enabled();
+        let operator = DeduplicationOperator::new("dedup", config);
+        let ctx = OperatorContext::new(Watermark::min(), 0);
+
+        let input = bincode::serialize(&42).unwrap();
+
+        // First event should pass through
+        let output1 = operator.process(input.clone(), &ctx).await.unwrap();
+        assert_eq!(output1.len(), 1);
+
+        // Duplicate event should be filtered
+        let output2 = operator.process(input.clone(), &ctx).await.unwrap();
+        assert_eq!(output2.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_deduplication_operator_different_events() {
+        use crate::config::DeduplicationConfig;
+
+        let config = DeduplicationConfig::new().enabled();
+        let operator = DeduplicationOperator::new("dedup", config);
+        let ctx = OperatorContext::new(Watermark::min(), 0);
+
+        let input1 = bincode::serialize(&42).unwrap();
+        let input2 = bincode::serialize(&43).unwrap();
+
+        // Both should pass through as they're different
+        let output1 = operator.process(input1, &ctx).await.unwrap();
+        let output2 = operator.process(input2, &ctx).await.unwrap();
+
+        assert_eq!(output1.len(), 1);
+        assert_eq!(output2.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_deduplication_operator_ttl() {
+        use crate::config::DeduplicationConfig;
+        use std::time::Duration;
+
+        let config = DeduplicationConfig::new()
+            .enabled()
+            .with_ttl(Duration::from_millis(100));
+
+        let operator = DeduplicationOperator::new("dedup", config);
+        let ctx = OperatorContext::new(Watermark::min(), 0);
+
+        let input = bincode::serialize(&42).unwrap();
+
+        // First event should pass
+        let output1 = operator.process(input.clone(), &ctx).await.unwrap();
+        assert_eq!(output1.len(), 1);
+
+        // Wait for TTL to expire
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+        // Should pass again after TTL expires
+        let output2 = operator.process(input.clone(), &ctx).await.unwrap();
+        assert_eq!(output2.len(), 1);
+    }
+
+    #[test]
+    fn test_deduplication_operator_stats() {
+        use crate::config::DeduplicationConfig;
+
+        let config = DeduplicationConfig::new().enabled();
+        let operator = DeduplicationOperator::new("dedup", config);
+
+        let stats = operator.stats();
+        assert_eq!(stats.cached_signatures, 0);
+        assert!(stats.enabled);
+    }
+
+    #[test]
+    fn test_deduplication_operator_clone() {
+        use crate::config::DeduplicationConfig;
+
+        let config = DeduplicationConfig::new().enabled();
+        let operator = DeduplicationOperator::new("dedup", config);
+        let _cloned = operator.clone();
     }
 }
