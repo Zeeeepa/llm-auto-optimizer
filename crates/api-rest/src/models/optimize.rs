@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -165,7 +165,7 @@ pub struct RollbackOptimizationRequest {
 }
 
 /// List optimizations query parameters
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct ListOptimizationsQuery {
     /// Filter by status
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,10 +1,10 @@
 //! Common request/response models
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 /// Pagination parameters
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct Pagination {
     /// Page number (starting from 1)
     #[serde(default = "default_page")]

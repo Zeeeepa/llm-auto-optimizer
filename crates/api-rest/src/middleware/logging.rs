@@ -85,24 +85,53 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     let duration = start.elapsed();
     let status = response.status();
 
-    let level = match status.as_u16() {
-        200..=299 => tracing::Level::INFO,
-        300..=399 => tracing::Level::INFO,
-        400..=499 => tracing::Level::WARN,
-        500..=599 => tracing::Level::ERROR,
-        _ => tracing::Level::INFO,
+    match status.as_u16() {
+        200..=299 => tracing::info!(
+            request_id = %request_id,
+            method = %method,
+            uri = %uri,
+            status = %status.as_u16(),
+            duration_ms = %duration.as_millis(),
+            user_id = %user_id,
+            "Request completed"
+        ),
+        300..=399 => tracing::info!(
+            request_id = %request_id,
+            method = %method,
+            uri = %uri,
+            status = %status.as_u16(),
+            duration_ms = %duration.as_millis(),
+            user_id = %user_id,
+            "Request completed"
+        ),
+        400..=499 => tracing::warn!(
+            request_id = %request_id,
+            method = %method,
+            uri = %uri,
+            status = %status.as_u16(),
+            duration_ms = %duration.as_millis(),
+            user_id = %user_id,
+            "Request completed"
+        ),
+        500..=599 => tracing::error!(
+            request_id = %request_id,
+            method = %method,
+            uri = %uri,
+            status = %status.as_u16(),
+            duration_ms = %duration.as_millis(),
+            user_id = %user_id,
+            "Request completed"
+        ),
+        _ => tracing::info!(
+            request_id = %request_id,
+            method = %method,
+            uri = %uri,
+            status = %status.as_u16(),
+            duration_ms = %duration.as_millis(),
+            user_id = %user_id,
+            "Request completed"
+        ),
     };
-
-    tracing::event!(
-        level,
-        request_id = %request_id,
-        method = %method,
-        uri = %uri,
-        status = %status.as_u16(),
-        duration_ms = %duration.as_millis(),
-        user_id = %user_id,
-        "Request completed"
-    );
 
     response
 }

@@ -1,5 +1,6 @@
 //! Timeout middleware
 
+use axum::response::IntoResponse;
 use std::time::Duration;
 use tower_http::timeout::TimeoutLayer;
 
