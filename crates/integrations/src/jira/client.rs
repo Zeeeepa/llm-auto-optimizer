@@ -22,7 +22,7 @@ pub struct JiraClient {
     /// Authentication manager
     auth: AuthManager,
     /// Rate limiter
-    rate_limiter: Arc<RateLimiter<governor::state::direct::NotKeyed, governor::clock::DefaultClock>>,
+    rate_limiter: Arc<RateLimiter<governor::state::direct::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>,
 }
 
 impl JiraClient {

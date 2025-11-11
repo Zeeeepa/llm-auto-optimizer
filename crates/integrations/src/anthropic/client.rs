@@ -22,7 +22,7 @@ pub struct AnthropicClient {
     /// Configuration
     config: Arc<RwLock<AnthropicConfig>>,
     /// Rate limiter
-    rate_limiter: Arc<RateLimiter<governor::state::direct::NotKeyed, governor::clock::DefaultClock>>,
+    rate_limiter: Arc<RateLimiter<governor::state::direct::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>,
     /// Cost tracker
     cost_tracker: Arc<RwLock<CostTracker>>,
 }

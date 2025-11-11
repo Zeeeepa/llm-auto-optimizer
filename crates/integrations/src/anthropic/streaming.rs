@@ -85,8 +85,16 @@ impl StreamHandler {
 
         info!("Streaming response started");
 
-        // Parse SSE stream
-        let stream = self.parse_sse_stream(response.bytes_stream());
+        // Parse SSE stream - create stream from response chunks
+        let byte_stream = futures::stream::unfold(response, |mut resp| async {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => Some((Ok(chunk), resp)),
+                Ok(None) => None,
+                Err(e) => Some((Err(e), resp)),
+            }
+        });
+
+        let stream = self.parse_sse_stream(byte_stream);
 
         Ok(Box::pin(stream))
     }
@@ -172,68 +180,72 @@ impl StreamHandler {
         &self,
         byte_stream: impl Stream<Item = reqwest::Result<bytes::Bytes>> + Send + 'static,
     ) -> impl Stream<Item = Result<StreamEvent>> + Send {
-        let mut buffer = String::new();
+        let buffer = Arc::new(tokio::sync::Mutex::new(String::new()));
 
         byte_stream.filter_map(move |chunk_result| {
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => return Some(Err(anyhow!("Stream error: {}", e))),
-            };
+            let buffer = buffer.clone();
+            async move {
+                let chunk = match chunk_result {
+                    Ok(c) => c,
+                    Err(e) => return Some(Err(anyhow!("Stream error: {}", e))),
+                };
 
-            // Convert bytes to string
-            let chunk_str = match std::str::from_utf8(&chunk) {
-                Ok(s) => s,
-                Err(e) => return Some(Err(anyhow!("Invalid UTF-8: {}", e))),
-            };
+                // Convert bytes to string
+                let chunk_str = match std::str::from_utf8(&chunk) {
+                    Ok(s) => s,
+                    Err(e) => return Some(Err(anyhow!("Invalid UTF-8: {}", e))),
+                };
 
-            buffer.push_str(chunk_str);
+                let mut buffer = buffer.lock().await;
+                buffer.push_str(chunk_str);
 
-            // Process complete SSE messages
-            let mut events = Vec::new();
+                // Process complete SSE messages
+                let mut events = Vec::new();
 
-            while let Some(pos) = buffer.find("\n\n") {
-                let message = buffer[..pos].to_string();
-                buffer = buffer[pos + 2..].to_string();
+                while let Some(pos) = buffer.find("\n\n") {
+                    let message = buffer[..pos].to_string();
+                    *buffer = buffer[pos + 2..].to_string();
 
-                if message.is_empty() {
-                    continue;
-                }
+                    if message.is_empty() {
+                        continue;
+                    }
 
-                // Parse SSE message
-                let mut event_type = None;
-                let mut data = String::new();
+                    // Parse SSE message
+                    let mut event_type = None;
+                    let mut data = String::new();
 
-                for line in message.lines() {
-                    if let Some(stripped) = line.strip_prefix("event: ") {
-                        event_type = Some(stripped.to_string());
-                    } else if let Some(stripped) = line.strip_prefix("data: ") {
-                        data.push_str(stripped);
+                    for line in message.lines() {
+                        if let Some(stripped) = line.strip_prefix("event: ") {
+                            event_type = Some(stripped.to_string());
+                        } else if let Some(stripped) = line.strip_prefix("data: ") {
+                            data.push_str(stripped);
+                        }
+                    }
+
+                    // Parse event data as JSON
+                    if !data.is_empty() {
+                        match serde_json::from_str::<StreamEvent>(&data) {
+                            Ok(event) => {
+                                debug!("Received stream event: {:?}", event_type);
+                                events.push(Ok(event));
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse stream event: {}", e);
+                                events.push(Err(anyhow!("Parse error: {}", e)));
+                            }
+                        }
                     }
                 }
 
-                // Parse event data as JSON
-                if !data.is_empty() {
-                    match serde_json::from_str::<StreamEvent>(&data) {
-                        Ok(event) => {
-                            debug!("Received stream event: {:?}", event_type);
-                            events.push(Ok(event));
-                        }
-                        Err(e) => {
-                            warn!("Failed to parse stream event: {}", e);
-                            events.push(Err(anyhow!("Parse error: {}", e)));
-                        }
-                    }
+                if events.is_empty() {
+                    None
+                } else if events.len() == 1 {
+                    Some(events.into_iter().next().unwrap())
+                } else {
+                    // If multiple events, return the first one
+                    // (This is a simplification; in practice, you might want to handle this differently)
+                    Some(events.into_iter().next().unwrap())
                 }
-            }
-
-            if events.is_empty() {
-                None
-            } else if events.len() == 1 {
-                Some(events.into_iter().next().unwrap())
-            } else {
-                // If multiple events, return the first one
-                // (This is a simplification; in practice, you might want to handle this differently)
-                Some(events.into_iter().next().unwrap())
             }
         })
     }

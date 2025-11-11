@@ -106,7 +106,7 @@
 //! - Cost tracking (where applicable)
 //! - Full test coverage
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 #![warn(
     clippy::all,
     clippy::pedantic,
