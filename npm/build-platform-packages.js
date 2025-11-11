@@ -12,7 +12,7 @@ const PLATFORMS = [
   { platform: 'win32', arch: 'x64', rust_target: 'x86_64-pc-windows-msvc' },
 ];
 
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 function createPlatformPackage(platform) {
   const packageName = `@llm-dev-ops/llm-auto-optimizer-cli-${platform.platform}-${platform.arch}`;

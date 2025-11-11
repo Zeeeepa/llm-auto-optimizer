@@ -1,0 +1,28 @@
+{
+  "name": "@llm-dev-ops/llm-auto-optimizer-cli-linux-arm64",
+  "version": "0.1.2",
+  "description": "LLM Auto Optimizer CLI for linux-arm64",
+  "keywords": [
+    "llm",
+    "optimization",
+    "ai",
+    "devops",
+    "monitoring"
+  ],
+  "homepage": "https://github.com/globalbusinessadvisors/llm-auto-optimizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/globalbusinessadvisors/llm-auto-optimizer.git"
+  },
+  "license": "Apache-2.0",
+  "author": "LLM Auto Optimizer Contributors <noreply@llmdevops.dev>",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/"
+  ]
+}
