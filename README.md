@@ -4,6 +4,8 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Crates.io](https://img.shields.io/crates/v/llm-optimizer.svg)](https://crates.io/crates/llm-optimizer)
+[![npm](https://img.shields.io/npm/v/@llm-dev-ops/llm-auto-optimizer.svg)](https://www.npmjs.com/package/@llm-dev-ops/llm-auto-optimizer)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](https://github.com/globalbusinessadvisors/llm-auto-optimizer)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](docs/TEST_COVERAGE_REPORT.md)
@@ -102,17 +104,108 @@ Detect performance degradation, drift, and anomalies with automatic response and
 
 ---
 
+## Installation
+
+### Package Registries
+
+The LLM Auto Optimizer is available on multiple package registries:
+
+#### 📦 Rust Crates (crates.io)
+
+All 15 workspace crates are published and available:
+
+```bash
+# Add to your Cargo.toml
+[dependencies]
+llm-optimizer-types = "0.1.1"
+llm-optimizer-config = "0.1.1"
+llm-optimizer-collector = "0.1.1"
+llm-optimizer-processor = "0.1.1"
+llm-optimizer-storage = "0.1.1"
+llm-optimizer-integrations = "0.1.1"
+llm-optimizer-api-rest = "0.1.1"
+llm-optimizer-api-grpc = "0.1.1"
+llm-optimizer-api-tests = "0.1.1"
+llm-optimizer-intelligence = "0.1.1"
+llm-optimizer = "0.1.1"
+llm-optimizer-cli = "0.1.1"
+
+# Or use from source
+[dependencies]
+llm-optimizer = { git = "https://github.com/globalbusinessadvisors/llm-auto-optimizer" }
+```
+
+#### 📦 npm Packages (npmjs.org)
+
+Install the CLI tool globally via npm:
+
+```bash
+# Install globally
+npm install -g @llm-dev-ops/llm-auto-optimizer
+
+# Or use npx (no installation)
+npx @llm-dev-ops/llm-auto-optimizer --help
+
+# Verify installation
+llm-optimizer --version
+llm-optimizer --help
+```
+
+Available commands after npm installation:
+- `llm-optimizer` - Full CLI tool
+- `llmo` - Short alias
+
+Platform support:
+- ✅ Linux x64 (published)
+- 🚧 macOS x64 (coming soon)
+- 🚧 macOS ARM64 (coming soon)
+- 🚧 Linux ARM64 (coming soon)
+- 🚧 Windows x64 (coming soon)
+
+---
+
 ## Quick Start
 
 ### Prerequisites
 
 - **Rust 1.75+** - [Install via rustup](https://rustup.rs/)
+- **Node.js 14+** - For npm installation (optional)
 - **PostgreSQL 15+** or SQLite for development
 - **Docker & Docker Compose** (recommended)
 
-### Installation
+### Installation Options
 
-#### Option 1: Docker Compose (Fastest)
+#### Option 1: npm (Fastest for CLI)
+
+```bash
+# Install globally
+npm install -g @llm-dev-ops/llm-auto-optimizer
+
+# Initialize configuration
+llm-optimizer init --api-url http://localhost:8080
+
+# Start using the CLI
+llm-optimizer --help
+llm-optimizer admin health
+llm-optimizer service status
+```
+
+#### Option 2: Cargo Install
+
+```bash
+# Install from crates.io
+cargo install llm-optimizer-cli
+
+# Or install from source
+git clone https://github.com/globalbusinessadvisors/llm-auto-optimizer.git
+cd llm-auto-optimizer
+cargo install --path crates/cli
+
+# Use the CLI
+llm-optimizer --help
+```
+
+#### Option 3: Docker Compose (Full Stack)
 
 ```bash
 # Clone the repository
@@ -131,7 +224,7 @@ docker-compose up -d
 # - Prometheus: http://localhost:9091
 ```
 
-#### Option 2: Build from Source
+#### Option 4: Build from Source
 
 ```bash
 # Clone the repository
@@ -148,7 +241,7 @@ cargo test --all
 ./target/release/llm-optimizer serve --config config.yaml
 ```
 
-#### Option 3: Kubernetes with Helm (Production)
+#### Option 5: Kubernetes with Helm (Production)
 
 ```bash
 # Install with Helm
@@ -748,6 +841,6 @@ Made with ❤️ by the LLM DevOps Community
 
 ---
 
-**Status**: Production Ready | **Version**: 0.1.0 | **License**: Apache 2.0
+**Status**: Production Ready | **Version**: 0.1.1 (Rust) / 0.1.2 (npm) | **License**: Apache 2.0
 
 </div>
