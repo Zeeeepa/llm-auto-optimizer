@@ -8,7 +8,7 @@ use llm_optimizer_cli::{
     client::{ClientConfig, RestClient},
     commands::{
         AdminCommand, ConfigCommand, IntegrationCommand, MetricsCommand, OptimizeCommand,
-        ServiceCommand, UtilCommand,
+        RunCommand, ServiceCommand, UtilCommand,
     },
     interactive,
     output::{get_formatter, OutputFormat},
@@ -160,6 +160,13 @@ enum Commands {
     /// Interactive mode
     #[command(name = "interactive", about = "Start interactive mode")]
     Interactive,
+
+    /// Run operations (benchmarks, etc.)
+    #[command(name = "run", about = "Run benchmarks and other operations")]
+    Run {
+        #[command(subcommand)]
+        command: RunCommand,
+    },
 }
 
 #[tokio::main]
@@ -267,6 +274,9 @@ async fn run() -> CliResult<()> {
         }
         Commands::Admin { command } => {
             command.execute(&client, &formatter).await?;
+        }
+        Commands::Run { command } => {
+            command.execute(&formatter).await?;
         }
         Commands::Init { .. } | Commands::Completions { .. } | Commands::Doctor | Commands::Interactive => {
             // Already handled above
