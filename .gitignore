@@ -49,3 +49,9 @@ temp/
 # Node.js
 node_modules/
 package-lock.json
+
+# Claude Code
+.claude/
+.claude-flow/
+.mcp.json
+CLAUDE.md
