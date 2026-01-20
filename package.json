@@ -34,9 +34,10 @@
     "@slack/bolt": "^3.17.1",
     "@slack/web-api": "^6.11.2",
     "axios": "^1.6.2",
-    "claude-flow": "^2.7.41",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
+    "uuid": "^9.0.1"
+  },
+  "optionalDependencies": {
     "@llm-dev-ops/llm-cost-ops-sdk": "^0.1.0",
     "@llm-devops/latency-lens": "^0.1.0",
     "@llm-dev-ops/sentinel-cli": "^0.1.0",
