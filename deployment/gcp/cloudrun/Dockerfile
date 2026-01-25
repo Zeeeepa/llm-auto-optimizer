@@ -54,10 +54,13 @@ USER optimizer
 EXPOSE 8080
 
 # Set environment defaults
+# Phase 3 Layer 1: Automation & Resilience (REQUIRED)
 ENV NODE_ENV=production \
     PORT=8080 \
     SERVICE_NAME=llm-auto-optimizer \
-    SERVICE_VERSION=1.0.0
+    SERVICE_VERSION=1.0.0 \
+    AGENT_PHASE=phase3 \
+    AGENT_LAYER=layer1
 
 # Health check (Cloud Run handles this, but good for local testing)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

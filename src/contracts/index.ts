@@ -46,7 +46,11 @@ export type DecisionType =
   | 'latency_optimization_analysis'
   | 'quality_optimization_analysis'
   | 'bounded_parameter_adjustment'
-  | 'configuration_simulation';
+  | 'configuration_simulation'
+  // Phase 3 Layer 1 Signal Types (Automation & Resilience)
+  | 'execution_strategy_signal'           // Routing/coordination signals
+  | 'optimization_signal'                 // Optimization opportunity signals
+  | 'incident_signal';                    // Incident detection/escalation signals
 
 export interface DecisionOutputs {
   /** Ranked recommendations (for recommendation agents) */
