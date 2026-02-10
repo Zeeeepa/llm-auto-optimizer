@@ -4,6 +4,11 @@
  * Single entry point for all optimization agents deployed as Google Cloud Run.
  * This service is STATELESS - all persistence goes through ruvector-service.
  *
+ * AGENTICS INSTRUMENTATION:
+ * This service is a Foundational Execution Unit within the Agentics execution
+ * system. All agent routes MUST carry an ExecutionContext (execution_id +
+ * parent_span_id) and produce hierarchical execution spans.
+ *
  * Endpoints:
  * - /health                                    - Service health check
  * - /ready                                     - Readiness probe
@@ -24,6 +29,14 @@ import { TokenOptimizationAgentHandler } from './agents/token-optimization-agent
 import { ModelSelectionAgentHandler } from './agents/model-selection-agent/handler';
 import { listAgents } from './agents';
 import { createRuVectorClient } from './services/ruvector-client';
+
+// Agentics execution instrumentation
+import {
+  extractExecutionContext,
+  ExecutionContextError,
+  SpanManager,
+  type RepoExecutionResult,
+} from './agentics';
 
 // ============================================================================
 // Configuration
@@ -182,6 +195,16 @@ async function handleListAgents(res: ServerResponse): Promise<void> {
   });
 }
 
+/**
+ * Route to agent with full Agentics execution span instrumentation.
+ *
+ * ENFORCEMENT:
+ * - Extracts ExecutionContext from headers/body (rejects if parent_span_id missing)
+ * - Creates repo-level span
+ * - Creates agent-level span for the invoked agent
+ * - Attaches artifacts to agent span
+ * - Returns hierarchical span structure alongside agent response
+ */
 async function routeToAgent(
   parsed: ParsedRequest,
   res: ServerResponse
@@ -197,6 +220,68 @@ async function routeToAgent(
   const agentId = pathParts[1];
   const action = pathParts[2] || 'health';
 
+  // ---- AGENTICS: Extract execution context ----
+  // Health checks are exempt from execution context requirement
+  if (action === 'health') {
+    const agentRequest = {
+      method: parsed.method,
+      path: `/${action}`,
+      headers: parsed.headers,
+      body: parsed.body as string | object | undefined,
+      query: parsed.query,
+    };
+
+    let response;
+    switch (agentId) {
+      case 'self-optimizing-agent':
+        response = await getSelfOptimizingHandler().handle(agentRequest);
+        break;
+      case 'token-optimization-agent':
+        response = await getTokenOptimizationHandler().handle(agentRequest);
+        break;
+      case 'model-selection-agent':
+        response = await getModelSelectionHandler().handle(agentRequest);
+        break;
+      default:
+        sendError(res, 404, 'AGENT_NOT_FOUND', `Unknown agent: ${agentId}`);
+        return;
+    }
+
+    res.writeHead(response.status, {
+      'Content-Type': 'application/json',
+      'X-Service-Name': SERVICE_NAME,
+      'X-Agent-Id': agentId,
+      ...response.headers,
+    });
+    res.end(response.body);
+    return;
+  }
+
+  // Non-health agent routes REQUIRE execution context
+  let executionContext;
+  try {
+    executionContext = extractExecutionContext(parsed.headers, parsed.body);
+  } catch (error) {
+    if (error instanceof ExecutionContextError) {
+      sendJson(res, 400, {
+        error: {
+          code: error.code,
+          message: error.message,
+        },
+        service: SERVICE_NAME,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+    throw error;
+  }
+
+  // ---- AGENTICS: Create SpanManager with repo-level span ----
+  const spanManager = new SpanManager(executionContext);
+
+  // ---- AGENTICS: Start agent-level span ----
+  const agentSpanId = spanManager.startAgentSpan(agentId);
+
   // Build agent request
   const agentRequest = {
     method: parsed.method,
@@ -207,30 +292,100 @@ async function routeToAgent(
   };
 
   let response;
+  try {
+    switch (agentId) {
+      case 'self-optimizing-agent':
+        response = await getSelfOptimizingHandler().handle(agentRequest);
+        break;
+      case 'token-optimization-agent':
+        response = await getTokenOptimizationHandler().handle(agentRequest);
+        break;
+      case 'model-selection-agent':
+        response = await getModelSelectionHandler().handle(agentRequest);
+        break;
+      default:
+        spanManager.failAgentSpan(agentSpanId, [`Unknown agent: ${agentId}`]);
+        const failedResult = spanManager.finalize();
+        sendJson(res, 404, {
+          error: { code: 'AGENT_NOT_FOUND', message: `Unknown agent: ${agentId}` },
+          execution: failedResult,
+          service: SERVICE_NAME,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+    }
 
-  switch (agentId) {
-    case 'self-optimizing-agent':
-      response = await getSelfOptimizingHandler().handle(agentRequest);
-      break;
-    case 'token-optimization-agent':
-      response = await getTokenOptimizationHandler().handle(agentRequest);
-      break;
-    case 'model-selection-agent':
-      response = await getModelSelectionHandler().handle(agentRequest);
-      break;
-    default:
-      sendError(res, 404, 'AGENT_NOT_FOUND', `Unknown agent: ${agentId}`);
-      return;
+    // ---- AGENTICS: Attach agent response as artifact ----
+    const agentOutput = safeParseJson(response.body);
+
+    // Attach the decision event / agent output as an artifact
+    const artifactRef = String(
+      agentOutput?.output_id || agentOutput?.execution_ref || `${agentId}-${action}-${Date.now()}`
+    );
+    spanManager.attachArtifact(agentSpanId, {
+      type: 'decision_event',
+      reference: artifactRef,
+      metadata: {
+        agent_id: agentId,
+        action,
+        status: response.status,
+      },
+    });
+
+    // Attach evidence: response hash for verifiability
+    const responseHash = simpleHash(response.body);
+    spanManager.attachEvidence(agentSpanId, {
+      type: 'hash',
+      value: responseHash,
+      description: `SHA-256 hash of ${agentId} ${action} response body`,
+    });
+
+    if (response.status >= 200 && response.status < 400) {
+      spanManager.completeAgentSpan(agentSpanId);
+    } else {
+      const errorObj = agentOutput?.error as Record<string, unknown> | undefined;
+      spanManager.failAgentSpan(agentSpanId, [
+        `Agent returned HTTP ${response.status}`,
+        String(errorObj?.message || 'Unknown agent error'),
+      ]);
+    }
+  } catch (error) {
+    // ---- AGENTICS: Record failure in span ----
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    spanManager.failAgentSpan(agentSpanId, [errorMessage]);
+
+    const failedResult = spanManager.finalize();
+    sendJson(res, 500, {
+      error: {
+        code: 'AGENT_EXECUTION_FAILED',
+        message: errorMessage,
+      },
+      execution: failedResult,
+      service: SERVICE_NAME,
+      timestamp: new Date().toISOString(),
+    });
+    return;
   }
 
-  // Forward agent response
+  // ---- AGENTICS: Finalize and return with execution spans ----
+  const executionResult = spanManager.finalize();
+
+  // Enrich response with execution spans
+  const enrichedResponse = {
+    data: safeParseJson(response.body),
+    execution: executionResult,
+  };
+
   res.writeHead(response.status, {
     'Content-Type': 'application/json',
     'X-Service-Name': SERVICE_NAME,
     'X-Agent-Id': agentId,
+    'X-Execution-Id': executionContext.execution_id,
+    'X-Repo-Span-Id': spanManager.repoSpanId,
+    'X-Agent-Span-Id': agentSpanId,
     ...response.headers,
   });
-  res.end(response.body);
+  res.end(JSON.stringify(enrichedResponse));
 }
 
 // ============================================================================
@@ -246,7 +401,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     // CORS headers for all responses
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Execution-Id, X-Parent-Span-Id');
 
     // Handle preflight
     if (parsed.method === 'OPTIONS') {
@@ -289,6 +444,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 }
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+function safeParseJson(str: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}
+
+function simpleHash(input: string): string {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+// ============================================================================
 // Server Startup
 // ============================================================================
 
@@ -302,6 +474,8 @@ server.listen(PORT, () => {
     version: SERVICE_VERSION,
     port: PORT,
     environment: PLATFORM_ENV,
+    agentics_instrumented: true,
+    repo_name: 'llm-auto-optimizer',
     timestamp: new Date().toISOString(),
   }));
 });
